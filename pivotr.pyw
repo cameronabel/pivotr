@@ -4,13 +4,15 @@ import os
 if (sys.platform == 'win32' and sys.executable.split('\\')[-1] == 'pythonw.exe'):
     sys.stdout = open('log.txt', 'w')
     sys.stderr = open('err.txt', 'w')
+from types import SimpleNamespace
 import kivy
 from kivy.app import App
 from kivy.uix.button import Button
 from kivy.uix.label import Label
 from kivy.uix.stacklayout import StackLayout
 from kivy.core.window import Window
-
+from nameparser import HumanName
+from kivy.config import Config
 import numpy as np
 import pandas as pd
 
@@ -24,13 +26,16 @@ __maintainer__ = 'Cameron Abel'
 __email__ = 'cameronabel@gmail.com'
 __status__ = 'Development'
 
-class ActiveTable:
-    """Holds working metadata on file.  Should incorporate class methods or convert to dict."""
-    filename = ''
-    file_type = ''
-    valid_file = False
-    head = ''
-    tail = ''
+Config.set('graphics', 'width', '400')
+Config.set('graphics', 'height', '500')
+Config.write()
+
+ActiveTable= SimpleNamespace(
+    filename = '',
+    file_type = '',
+    valid_file = False,
+    head = '',
+    tail = '')
 
 
 class DropFile(Button):
@@ -63,6 +68,7 @@ class Pivotr(App):
         SL = StackLayout(orientation='tb-rl')
         Window.size = (400, 500)
         Window.clearcolor = (.25, .25, .25, 1)
+        Window.bind(on_cursor_enter=lambda *__:Window.raise_window())
         # set an empty list that will be later populated
         # with functions from widgets themselves
         self.drops = []
@@ -151,16 +157,44 @@ class Pivotr(App):
 def determine_file_type(filename):
     """Determines investment company source and file path."""
     head, tail = os.path.split(filename)
-    if tail[-7:] == 'YTD.TXT':
+    if is_jh(filename):
         file_type = 'John Hancock'
         valid_file = True
     elif tail[:14] == 'ArchiveService':
         file_type = 'Voya'
         valid_file = True
+    elif 'PartcBalance' in tail:
+        file_type = 'TRC'
+        valid_file = True
+    elif is_rkdirect(filename):
+        file_type = 'RK Direct'
+        valid_file = True
     else:
         file_type = 'Incompatible file source'
         valid_file = False
     return file_type, valid_file, head, tail
+
+
+def is_jh(tail):
+    if tail[-7:] == 'YTD.TXT':
+        return True
+    return False
+
+
+def is_rkdirect(filename):
+    try:
+        b = open(filename, 'r').readlines()
+        if b[0][:6] == 'ICU ID':
+            return True
+        else:
+            return False
+    except:
+        return False
+
+
+
+
+
 
 
 def mh_boot():
@@ -178,6 +212,12 @@ def mh_boot():
         mh_prep(trunctable, pye, contractname)
     elif ActiveTable.file_type == 'Voya':
         trunctable, pye, plan_name = voya_pivot(ActiveTable.filename)
+        mh_prep(trunctable, pye, plan_name)
+    elif ActiveTable.file_type == 'TRC':
+        trunctable, pye, plan_name = trc_pivot(ActiveTable.filename)
+        mh_prep(trunctable, pye, plan_name)
+    elif ActiveTable.file_type == 'RK Direct':
+        trunctable, pye, plan_name = rkd_pivot(ActiveTable.filename)
         mh_prep(trunctable, pye, plan_name)
 
 
@@ -197,6 +237,12 @@ def ms_boot():
     elif ActiveTable.file_type == 'Voya':
         trunctable, pye, plan_name = voya_pivot(ActiveTable.filename)
         ms_prep(trunctable, pye, plan_name)
+    elif ActiveTable.file_type == 'TRC':
+        trunctable, pye, plan_name = trc_pivot(ActiveTable.filename)
+        ms_prep(trunctable, pye, plan_name)
+    elif ActiveTable.file_type == 'RK Direct':
+        trunctable, pye, plan_name = rkd_pivot(ActiveTable.filename)
+        ms_prep(trunctable, pye, plan_name)
 
 
 def hk_boot():
@@ -214,6 +260,12 @@ def hk_boot():
         hk_prep(trunctable, pye, contractname)
     elif ActiveTable.file_type == 'Voya':
         trunctable, pye, plan_name = voya_pivot(ActiveTable.filename)
+        hk_prep(trunctable, pye, plan_name)
+    elif ActiveTable.file_type == 'TRC':
+        trunctable, pye, plan_name = trc_pivot(ActiveTable.filename)
+        hk_prep(trunctable, pye, plan_name)
+    elif ActiveTable.file_type == 'RK Direct':
+        trunctable, pye, plan_name = rkd_pivot(ActiveTable.filename)
         hk_prep(trunctable, pye, plan_name)
 
 
@@ -485,6 +537,21 @@ def namegen():
     return nametable
 
 
+def parsename(fullname):
+    name = HumanName(fullname)
+    return name.last + ', ' + name.first
+
+
+def parsemyt(myt):
+    src_dict = {'103' : 'Profit Sharing',
+                '101' : 'Deferrals',
+                '137' : 'Pension',
+                '104' : 'Matching',
+                '119' : 'ESOP Rollover',
+                '112' : 'Rollover'}
+    return src_dict.get(myt, myt)
+
+
 def jh_pivot(filename):
     """Returns a pivot table df based on JH assets."""
     sources = pd.DataFrame([[0, 'Profit Sharing'],
@@ -552,7 +619,7 @@ def jh_pivot(filename):
         if col not in ('Beg Bal', 'End Bal'):
             trunctable[col].replace(0, '', inplace=True)
 
-    return (trunctable, pye)
+    return trunctable, pye
 
 
 def voya_pivot(filename):
@@ -595,6 +662,103 @@ def voya_pivot(filename):
             trunctable[col].replace(0, '', inplace=True)
 
     return (trunctable, pye, plan_name)
+
+
+def trc_pivot(filename):
+    sources = pd.DataFrame([['Profit Sharing', 'Profit Sharing'],
+                            ['Deferred Salary', 'Deferrals'],
+                            ['Rollover', 'Rollover'],
+                            ['Safe Harbor Non-elective', 'SHNEC'],
+                            ['Roth Salary Deferral', 'Roth'],
+                            ['Company Match', 'Matching']],
+                            columns=['Source Name','Source'])
+    
+    b = open(filename, 'r').readlines()
+    #line = b[1]
+    pye = b[1][-11:-1]
+    
+    worktable = pd.read_csv(filename, sep='\t',
+                            usecols=[4,5,6,12,13,14,15,16,17,18,19,20,21,22,23],
+                            names=['First', 'Last', 'SSN', 'Source Name', 'Beg Bal', 'Contrib',
+                            'Loan', 'Forf Alloc', 'TRF', 'Distrib', 'Forf', 'Fees', 'Other',
+                            'G/L', 'End Bal'], header=None,
+                            skiprows=range(0,5))
+    worktable.drop(worktable.tail(1).index, inplace=True)
+    worktable.reset_index(drop=True, inplace=True)
+
+    worktable['Name'] = worktable['Last'] + ', ' + worktable['First']
+    worktable['SSN'] = worktable['SSN'].astype(int)
+
+    pivoted_data = pd.pivot_table(worktable,
+                                  index = ['SSN','Source Name'],
+                                  aggfunc=np.sum,
+                                  fill_value=0)
+    pivoted_data.reset_index(inplace=True)
+    
+    nametable = worktable[['SSN'] + ['Name']].drop_duplicates(subset='SSN')
+
+    pivoted_data = pivoted_data.merge(nametable, on='SSN', how='left')
+    pivoted_data = pivoted_data.merge(sources, on='Source Name', how='left')
+
+    pivoted_data['Source Name'].update(pivoted_data['Source'])
+    pivoted_data = pivoted_data.drop(columns=['Source']).rename(columns={'Source Name':'Source'})
+
+    pivoted_data = pivoted_data[['SSN', 'Name', 'Source', 'Beg Bal', 'Contrib', 
+    'Loan', 'Forf Alloc', 'TRF', 'Distrib', 'Forf', 'Fees', 'Other', 
+    'G/L', 'End Bal']].dropna(how='all')
+
+    trunctable = pivoted_data.sort_values(by=['Source', 'Name'])
+    
+    trunctable = trunctable.loc[:, (trunctable != 0).any(axis=0)]
+    plan_name = ''
+    return trunctable, pye, plan_name
+
+
+def rkd_pivot(filename):
+    """Returns a pivot table df based on American Funds RKDirect assets."""
+
+    worktable = pd.read_csv(filename, sep=',',
+                            usecols=[1, 2, 3, 4, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 26],
+                            names=['planID', 'SSN', 'fullname', 'MYT', 'Beg Bal', 'Conv', 'Contrib',
+                            'Dividends', 'Gain/Loss', 'Exch', 'Fees', 'Forf', 'Distrib', 'Other',
+                            'TRFIN', 'TRFOUT', 'Loan TRFIN', 'Loan TRFOUT', 'Int', 'Ins', 'End Bal', 'PYE'], header=None,
+                            skiprows=1)
+    pye = worktable['PYE'][1]
+    planID = worktable['planID'][1]
+    worktable['Name'] = worktable['fullname'].apply(parsename).str.title()
+    worktable['G/L'] = worktable['Dividends'] + worktable['Gain/Loss']
+    worktable['TRF'] = worktable['Exch'] + worktable['TRFIN'] + worktable['TRFOUT']
+    worktable.drop(columns=['fullname', 'Dividends', 'Gain/Loss', 'planID',
+                            'Exch', 'TRFIN', 'TRFOUT', 'PYE'], inplace=True)
+    pivoted_data = pd.pivot_table(worktable,
+                                  index = ['Name', 'SSN', 'MYT'],
+                                  aggfunc=np.sum,
+                                  fill_value=0)
+    pivoted_data.reset_index(inplace=True)
+
+    trunctable = pivoted_data.loc[:, (pivoted_data != 0).any(axis=0)]
+    trunctable['MYT'] = trunctable['MYT'].astype(str)
+    trunctable['Source'] = trunctable['MYT'].apply(parsemyt)
+    trunctable = trunctable.drop(columns=['MYT'])
+
+    trunctable['SSN'] = trunctable['SSN'].astype(int)
+    columns = list(trunctable)
+    for col in columns:
+        if col not in ('Beg Bal', 'End Bal'):
+            trunctable[col].replace(0, '', inplace=True)    
+    
+    try:
+        planlist = pd.read_csv('rkdplans.csv')
+        planname = planlist.loc[planlist['planID'] == planID]
+        planname.reset_index(inplace=True)
+        planname = planname.at[0, 'Plan Name']
+    except:
+        planname = ''
+    
+    
+    
+    return trunctable, pye, planname
+
 
 
 if __name__ == '__main__':
