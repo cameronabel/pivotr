@@ -35,7 +35,8 @@ ActiveTable= SimpleNamespace(
     file_type = '',
     valid_file = False,
     head = '',
-    tail = '')
+    tail = '',
+    tail_disp = '')
 
 
 class DropFile(Button):
@@ -56,7 +57,11 @@ class DropFile(Button):
             ActiveTable.filename = filename.decode('utf-8')
             ActiveTable.file_type, ActiveTable.valid_file, ActiveTable.head, ActiveTable.tail = (
                 determine_file_type(ActiveTable.filename))
-            self.text = ('Raw asset file:\n' + ActiveTable.tail
+            if len(ActiveTable.tail) > 15:
+                ActiveTable.tail_disp = ActiveTable.tail[:8] + '...' + ActiveTable.tail[-7:]
+            else:
+                ActiveTable.tail_disp = ActiveTable.tail
+            self.text = ('Raw asset file:\n' + ActiveTable.tail_disp
                          + '\n\nFile source:\n' + ActiveTable.file_type)
 
 
@@ -82,41 +87,27 @@ class Pivotr(App):
                         background_normal='',
                         background_color=(0, .475, .42, 1))
         # Creating Multiple Buttons
-        btn_hk = Button(text="HK",
-                        font_size=20,
-                        size_hint=(.2, .186),
-                        background_normal='',
-                        background_color=(1, 1, 1, .6),
-                        color=(.25, .25, .25, 1),
-                        bold=True)
-        btn_mh = Button(text="MH",
-                        font_size=20,
-                        size_hint=(.2, .186),
-                        background_normal='',
-                        background_color=(1, 1, 1, .6),
-                        color=(.25, .25, .25, 1),
-                        bold=True)
-        btn_ms = Button(text="MS",
-                        font_size=20,
-                        size_hint=(.2, .186),
-                        background_normal='',
-                        background_color=(1, 1, 1, .6),
-                        color=(.25, .25, .25, 1),
-                        bold=True)
-        btn_sb = Button(text="SB",
-                        font_size=20,
-                        size_hint=(.2, .186),
-                        background_normal='',
-                        background_color=(1, 1, 1, .6),
-                        color=(.25, .25, .25, 1),
-                        bold=True)
-        btn_ks = Button(text="KS",
-                        font_size=20,
-                        size_hint=(.2, .186),
-                        background_normal='',
-                        background_color=(1, 1, 1, .6),
-                        color=(.25, .25, .25, 1),
-                        bold=True)
+        btn_stacked = Button(text="Stacked",
+                             font_size=20,
+                             size_hint=(.2, .311666),
+                             background_normal='',
+                             background_color=(1, 1, 1, .6),
+                             color=(.25, .25, .25, 1),
+                             bold=True)
+        btn_tabbed = Button(text="Tabbed",
+                            font_size=20,
+                            size_hint=(.2, .311666),
+                            background_normal='',
+                            background_color=(1, 1, 1, .6),
+                            color=(.25, .25, .25, 1),
+                            bold=True)
+        btn_wide = Button(text="Wide\ncoming\nsoon",
+                          font_size=20,
+                          size_hint=(.2, .311666),
+                          background_normal='',
+                          background_color=(1, 1, 1, .2),
+                          color=(.25, .25, .25, 1),
+                          bold=True)
         cred = Label(text='© 2019 by Cameron Abel',
                      size_hint=(.6, .05),
                      halign='right',)
@@ -128,18 +119,14 @@ class Pivotr(App):
         bordf = Label(size_hint=(.2, .005))
 
         # adding widgets
-        SL.add_widget(btn_hk)
-        btn_hk.bind(on_press=lambda x: hk_boot())
         SL.add_widget(bordb)
-        SL.add_widget(btn_mh)
-        btn_mh.bind(on_press=lambda x: mh_boot())
+        SL.add_widget(btn_stacked)
+        btn_stacked.bind(on_press=lambda x: stacked_boot())
         SL.add_widget(bordc)
-        SL.add_widget(btn_ms)
-        btn_ms.bind(on_press=lambda x: ms_boot())
+        SL.add_widget(btn_tabbed)
+        btn_tabbed.bind(on_press=lambda x: tabbed_boot())
         SL.add_widget(bordd)
-        SL.add_widget(btn_sb)
-        SL.add_widget(borde)
-        SL.add_widget(btn_ks)
+        SL.add_widget(btn_wide)
         SL.add_widget(borda)
         SL.add_widget(drop)
         SL.add_widget(cred)
@@ -169,10 +156,16 @@ def determine_file_type(filename):
     elif is_rkdirect(filename):
         file_type = 'RK Direct'
         valid_file = True
+    elif is_emp(filename):
+        file_type = 'Empower'
+        valid_file = True
+    elif is_prin(filename):
+        file_type = 'Principal'
+        valid_file = True
     else:
         file_type = 'Incompatible file source'
         valid_file = False
-    return file_type, valid_file, head, tail
+    return file_type, ActiveTable.valid_file, head, tail
 
 
 def is_jh(tail):
@@ -184,7 +177,9 @@ def is_jh(tail):
 def is_rkdirect(filename):
     try:
         b = open(filename, 'r').readlines()
-        if b[0][:6] == 'ICU ID':
+        #print(b[0])
+        #print(b[0][:6])
+        if b[0][:6] == 'ICU ID' or b[0][:6] == '"ICU I':
             return True
         else:
             return False
@@ -192,12 +187,29 @@ def is_rkdirect(filename):
         return False
 
 
+def is_emp(filename):
+    try:
+        test_df = pd.read_excel(filename)
+        if 'Contributions, SGL' in test_df.columns:
+            return True
+        else:
+            return False
+    except:
+        return False
 
 
+def is_prin(filename):
+    try:
+        test_df = pd.read_csv(filename)
+        if 'Source Text' in test_df.columns:
+            return True
+        else:
+            return False
+    except:
+        return False
 
 
-
-def mh_boot():
+def stacked_boot():
     if ActiveTable.file_type == 'John Hancock':
         contractnum = int(ActiveTable.tail[:-7])
 
@@ -209,19 +221,24 @@ def mh_boot():
         except:
             contractname = ''
         trunctable, pye = jh_pivot(ActiveTable.filename)
-        mh_prep(trunctable, pye, contractname)
+        stacked_prep(trunctable, pye, contractname)
     elif ActiveTable.file_type == 'Voya':
         trunctable, pye, plan_name = voya_pivot(ActiveTable.filename)
-        mh_prep(trunctable, pye, plan_name)
+        stacked_prep(trunctable, pye, plan_name)
     elif ActiveTable.file_type == 'TRC':
         trunctable, pye, plan_name = trc_pivot(ActiveTable.filename)
-        mh_prep(trunctable, pye, plan_name)
+        stacked_prep(trunctable, pye, plan_name)
     elif ActiveTable.file_type == 'RK Direct':
         trunctable, pye, plan_name = rkd_pivot(ActiveTable.filename)
-        mh_prep(trunctable, pye, plan_name)
+        stacked_prep(trunctable, pye, plan_name)
+    elif ActiveTable.file_type == 'Empower':
+        trunctable, pye, plan_name = emp_pivot(ActiveTable.filename)
+        stacked_prep(trunctable, pye, plan_name)
+    elif ActiveTable.file_type == 'Principal':
+        trunctable, pye, plan_name = prin_pivot(ActiveTable.filename)
+        stacked_prep(trunctable, pye, plan_name)
 
-
-def ms_boot():
+def tabbed_boot():
     if ActiveTable.file_type == 'John Hancock':
         contractnum = int(ActiveTable.tail[:-7])
 
@@ -233,44 +250,26 @@ def ms_boot():
         except:
             contractname = ''
         trunctable, pye = jh_pivot(ActiveTable.filename)
-        ms_prep(trunctable, pye, contractname)
+        tabbed_prep(trunctable, pye, contractname)
     elif ActiveTable.file_type == 'Voya':
         trunctable, pye, plan_name = voya_pivot(ActiveTable.filename)
-        ms_prep(trunctable, pye, plan_name)
+        tabbed_prep(trunctable, pye, plan_name)
     elif ActiveTable.file_type == 'TRC':
         trunctable, pye, plan_name = trc_pivot(ActiveTable.filename)
-        ms_prep(trunctable, pye, plan_name)
+        tabbed_prep(trunctable, pye, plan_name)
     elif ActiveTable.file_type == 'RK Direct':
         trunctable, pye, plan_name = rkd_pivot(ActiveTable.filename)
-        ms_prep(trunctable, pye, plan_name)
+        tabbed_prep(trunctable, pye, plan_name)
+    elif ActiveTable.file_type == 'Empower':
+        trunctable, pye, plan_name = emp_pivot(ActiveTable.filename)
+        tabbed_prep(trunctable, pye, plan_name)
+    elif ActiveTable.file_type == 'Principal':
+        trunctable, pye, plan_name = prin_pivot(ActiveTable.filename)
+        tabbed_prep(trunctable, pye, plan_name)
 
-
-def hk_boot():
-    if ActiveTable.file_type == 'John Hancock':
-        contractnum = int(ActiveTable.tail[:-7])
-
-        try:
-            contractlist = pd.read_csv('contracts.csv')
-            contractname = contractlist.loc[contractlist['Contract Number'] == contractnum]
-            contractname.reset_index(inplace=True)
-            contractname = contractname.at[0, 'Contract Name']
-        except:
-            contractname = ''
-        trunctable, pye = jh_pivot(ActiveTable.filename)
-        hk_prep(trunctable, pye, contractname)
-    elif ActiveTable.file_type == 'Voya':
-        trunctable, pye, plan_name = voya_pivot(ActiveTable.filename)
-        hk_prep(trunctable, pye, plan_name)
-    elif ActiveTable.file_type == 'TRC':
-        trunctable, pye, plan_name = trc_pivot(ActiveTable.filename)
-        hk_prep(trunctable, pye, plan_name)
-    elif ActiveTable.file_type == 'RK Direct':
-        trunctable, pye, plan_name = rkd_pivot(ActiveTable.filename)
-        hk_prep(trunctable, pye, plan_name)
-
-
-def mh_prep(trunctable, pye, contractname):
-    """writes pivot table to excel with MH preferred formatting"""
+def stacked_prep(trunctable, pye, contractname):
+    """writes pivot table to excel with stacked formatting"""
+    trunctable = end_bal_check(trunctable)
     trunctable = trunctable[['SSN'] +
                             [col for col in trunctable.columns if col != 'SSN']]
     trunctable = trunctable[['Name'] +
@@ -278,11 +277,17 @@ def mh_prep(trunctable, pye, contractname):
     trunctable = trunctable[['Source'] +
                             [col for col in trunctable.columns if col != 'Source']]
 
-    trunctable = trunctable[[col for col in trunctable.columns if col != 'End Bal'] +
-                            ['End Bal']]
+    try:
+        trunctable = trunctable[[col for col in trunctable.columns if col != 'End Bal'] +
+                                ['End Bal']]
+    except:
+        pass
     trunctable = trunctable.sort_values(by=['Source', 'Name'])
-
-    outputfile = ActiveTable.head + '\\' + pye[-4:] + ' ' + contractname + ' Data Prep - MH.xlsx'
+    if pye == '':
+        pye_space = ''
+    else:
+        pye_space = pye + ' '
+    outputfile = ActiveTable.head + '\\' + pye_space + contractname + ' Data Prep.xlsx'
 
     writer = pd.ExcelWriter(outputfile, engine='xlsxwriter')
     workbook = writer.book
@@ -339,23 +344,30 @@ def mh_prep(trunctable, pye, contractname):
     writer.save()
 
 
-def ms_prep(trunctable, pye, contractname):
-    """writes table to excel with MS preferred format"""
+def tabbed_prep(trunctable, pye, contractname):
+    """writes table to excel with tabbed format"""
+    trunctable = end_bal_check(trunctable)
     trunctable = trunctable[['SSN'] +
                             [col for col in trunctable.columns if col != 'SSN']]
     trunctable = trunctable[['Name'] +
                             [col for col in trunctable.columns if col != 'Name']]
 
-    trunctable = trunctable[[col for col in trunctable.columns if col != 'End Bal'] +
-                            ['End Bal']]
+    try:
+        trunctable = trunctable[[col for col in trunctable.columns if col != 'End Bal'] +
+                                ['End Bal']]
+    except:
+        pass
     trunctable = trunctable.sort_values(by=['Source', 'Name'])
-
-    outputfile = ActiveTable.head + '\\' + pye[-4:] + ' ' + contractname + ' Data Prep - MS.xlsx'
+    if pye == '':
+        pye_space = ''
+    else:
+        pye_space = pye + ' '
+    outputfile = ActiveTable.head + '\\' + pye_space + contractname + ' Data Prep.xlsx'
 
     writer = pd.ExcelWriter(outputfile, engine='xlsxwriter')
     workbook = writer.book
 
-    sourcelist = trunctable['Source'].unique().tolist()
+    sourcelist = [str(x) for x in trunctable['Source'].unique().tolist()]
 
     formatnum = workbook.add_format({'num_format': '#,##0.00_)'})
     formatssn = workbook.add_format({'num_format': '000-00-0000'})
@@ -421,75 +433,6 @@ def ms_prep(trunctable, pye, contractname):
     writer.save()
 
 
-def hk_prep(trunctable, pye, contractname):
-    """writes pivot table to excel with HK preferred formatting"""
-    trunctable = trunctable[['Source'] +
-                            [col for col in trunctable.columns if col != 'Source']]
-    trunctable = trunctable[['Name'] +
-                            [col for col in trunctable.columns if col != 'Name']]
-    trunctable = trunctable[['SSN'] +
-                            [col for col in trunctable.columns if col != 'SSN']]
-    trunctable = trunctable[[col for col in trunctable.columns if col != 'End Bal'] +
-                            ['End Bal']]
-    trunctable = trunctable.sort_values(by=['Source', 'Name'])
-
-    outputfile = ActiveTable.head + '\\' + pye[-4:] + ' ' + contractname + ' Data Prep - HK.xlsx'
-
-    writer = pd.ExcelWriter(outputfile, engine='xlsxwriter')
-    workbook = writer.book
-    worksheet = workbook.add_worksheet('Source Data')
-    writer.sheets['Source Data'] = worksheet
-    trunctable.to_excel(writer, sheet_name='Source Data', index=False,
-                        startrow=4, startcol=0, header=False)
-
-    formatnum = workbook.add_format({'num_format': '#,##0.00_);(#,##0.00)'})
-    formatssn = workbook.add_format({'num_format': '000-00-0000'})
-    formattitle = workbook.add_format({'bold': True, 'font_size': 14})
-    formatheader = workbook.add_format({'bold': True, 'bottom':0, 'top':0,
-                                        'left':0, 'right':0, 'underline':True})
-    formattotal = workbook.add_format({'bold': True, 'bottom':1, 'top':1,
-                                       'num_format': '#,##0.00_)'})
-    formatdouble = workbook.add_format({'top':6})
-
-    # number format and column width
-    srclen = trunctable['Source'].map(len).max()
-    worksheet.set_column('A:A', 12, formatssn)
-    worksheet.set_column('B:B', 26)
-    worksheet.set_column('C:C', srclen)
-    worksheet.set_column('D:O', 12, formatnum)
-
-    # writes and formats sheet title
-    worksheet.write(0, 1, contractname, formattitle)
-    worksheet.write(1, 1, ActiveTable.file_type + ' data for PYE ' + pye, formattitle)
-
-    # writes and formats headers
-    worksheet.set_row(2, 15, formatheader)
-    worksheet.set_row(3, 15, formatheader)
-    for col_num, value in enumerate(trunctable.columns.values):
-        worksheet.write(3, col_num, value, formatheader)
-
-    # writes and formats totals
-    totalrow = trunctable.shape[0]+5
-    worksheet.write(totalrow, 0, 'TOTALS', formattotal)
-    worksheet.write(totalrow, 1, '', formattotal)
-    worksheet.write(totalrow, 2, '', formattotal)
-
-    col_letters = ['D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R']
-    colindex = 0
-    for _ in trunctable:
-        if colindex > 2:
-            tindex = col_letters.pop(0)
-            tcell = tindex + str(totalrow)
-            formula = '=sum(' + tindex + '5:' + tcell + ')'
-            worksheet.write(totalrow - 1, colindex, '', formatdouble)
-            worksheet.write(totalrow, colindex, formula, formattotal)
-        colindex += 1
-
-    worksheet.freeze_panes(4, 0)
-
-    writer.save()
-
-
 def namegen():
     """Returns a df of names and SSNs."""
     try:
@@ -532,7 +475,6 @@ def namegen():
     nametable = pd.merge(nametable, ascname, on='SSN', how='outer')
     nametable['Name_x'].update(nametable['Name_y'])
     nametable = nametable.rename(columns={'Name_x':'Name'}).drop(columns=['Name_y'])
-    nametable['Name'] = nametable.Name.str.title()
 
     return nametable
 
@@ -552,45 +494,67 @@ def parsemyt(myt):
     return src_dict.get(myt, myt)
 
 
+def parse_emp_src(source_code):
+    src_dict = {'ER01' : 'Profit Sharing',
+                'ER02': 'Prev Wage',
+                'BTK1' : 'Deferrals',
+                '137' : 'Pension',
+                'ERM1' : 'Matching',
+                'RTH1' : 'Roth',
+                'EER1' : 'Rollover',
+                'SHM1': 'SH Match'}
+    return src_dict.get(source_code, source_code)
+
+
+def end_bal_check(table):
+    if 'End Bal' not in table.columns:
+        table['End Bal'] = 0
+    if 'Beg Bal' not in table.columns:
+        table['Beg Bal'] = 0
+    return table    
+
+
 def jh_pivot(filename):
     """Returns a pivot table df based on JH assets."""
-    sources = pd.DataFrame([[0, 'Profit Sharing'],
-                            [3, 'PS to Forf'],
-                            [4, 'Deferrals'],
-                            [5, 'SH Match'],
-                            [6, 'Rollover'],
-                            [7, 'SH Match to Forf'],
-                            [8, 'SHNEC'],
-                            [12, 'Roth'],
-                            [21, 'Rollover'],
-                            [23, '403(b) Rollover'],
-                            [25, 'Simple IRA Rollover'],
-                            [27, 'After-tax Rollover'],
-                            [29, 'Roth Rollover'],
-                            [55, 'Matching'],
-                            [71, 'QACA Match']],
-                           columns=['Source Code', 'Source'])
-
-    transactions = pd.DataFrame([[0, 'Beg Bal'],
-                                 [1, 'Contrib'],
-                                 [2, 'Distrib'],
-                                 [11, 'G/L'],
-                                 [5, 'TRF'],
-                                 [7, 'Loan Issue'],
-                                 [8, 'Loan Pay'],
-                                 [120, 'Roll In'],
-                                 [999, 'End Bal']],
-                                columns=['Trans Code', 'Trans'])
-
+    source_dict = {'0' : 'Profit Sharing',
+                   '3' : 'PS to Forf',
+                   '4' : 'Deferrals',
+                   '5' : 'SH Match',
+                   '6' : 'Rollover',
+                   '7' : 'SH Match to Forf',
+                   '8' : 'SHNEC',
+                   '12' : 'Roth',
+                   '21' : 'Rollover',
+                   '23' : '403(b) Rollover',
+                   '25' : 'Simple IRA Rollover',
+                   '27' : 'After-tax Rollover',
+                   '29' : 'Roth Rollover',
+                   '55' : 'Matching',
+                   '57' : 'Match to Forf',
+                   '71' : 'QACA Match'}
+    trans_dict = {'0': 'Beg Bal',
+                 '1': 'Contrib',
+                 '2': 'Distrib',
+                 '11': 'G/L',
+                 '5': 'TRF',
+                 '7': 'Loan Issue',
+                 '8': 'Loan Pay',
+                 '99': 'Loan Default',
+                 '120': 'Roll In',
+                 '999': 'End Bal'}
+    
     worktable = pd.read_fwf(filename,
                             widths=[8, 9, 3, 6, 2, 3, 12, 15, 12, 10],
                             names=['Contract Number', 'SSN', 'Trans Code',
                                    'Period End', 'Source Code', 'Fund', 'Amount',
                                    'Units', 'Loan Interest', 'Loan Charge'])
-    worktable = worktable.merge(transactions, on='Trans Code', how='left')
+    #print(worktable)
+    #worktable['Trans Code'] = worktable['Trans Code'].astype(str)
+    #worktable = worktable.merge(transactions, on='Trans Code', how='left')
+    worktable['Trans'] = worktable['Trans Code'].apply(lambda x: trans_dict.get(str(x), str(x)))
     pye = str(worktable.at[1, 'Period End']).strip()
     pye = pye[:-2] + '20' + pye[-2:]
-    pye = pye[:-6] + '/' + pye[-6:-4] + '/' + pye[-4:]
+    #pye = pye[:-6] + '/' + pye[-6:-4] + '/' + pye[-4:]
 
     pivoted_data = pd.pivot_table(worktable,
                                   values=['Amount'],
@@ -602,7 +566,7 @@ def jh_pivot(filename):
     pivoted_data.round(2)
     pivoted_data.columns = [s2 for (s1, s2) in pivoted_data.columns.tolist()]
     pivoted_data.reset_index(inplace=True)
-
+    #print(pivoted_data)
     nametable = namegen()
 
     pivoted_data['SSN'] = pivoted_data['SSN'].astype(str)
@@ -610,9 +574,10 @@ def jh_pivot(filename):
     cotable = pivoted_data.merge(nametable, on='SSN', how='left')
 
     trunctable = cotable.loc[:, (cotable != 0).any(axis=0)]
-    trunctable = trunctable.merge(sources, on='Source Code', how='left')
+    
+    #trunctable = trunctable.merge(sources, on='Source Code', how='left')
+    trunctable['Source'] = trunctable['Source Code'].apply(lambda x: source_dict.get(str(x), str(x)))
     trunctable = trunctable.drop(columns=['Source Code'])
-
     trunctable['SSN'] = trunctable['SSN'].astype(int)
     columns = list(trunctable)
     for col in columns:
@@ -627,7 +592,7 @@ def voya_pivot(filename):
 
     worktable = pd.read_excel(filename, sheet_name=3, usecols=('B:C,E:F,L:AB,AG'))
     plan_name = str(worktable.at[1, 'Plan Name']).strip().replace('(K)', '(k)')
-    pye = str(worktable.at[1, 'End Date']).strip()
+    pye = str(worktable.at[1, 'End Date']).strip().replace('/','')
     worktable.drop(columns=['Plan Name', 'End Date'], inplace=True)
     worktable['Name'] = worktable['Name'].str.title()
     worktable['G/L'] = worktable['Dividends Earnings'] + worktable['Gain/Loss']
@@ -651,7 +616,7 @@ def voya_pivot(filename):
     for col in list(worktable):
         worktable.rename(columns={col:col_name_dict.get(col, col)}, inplace=True)
     worktable = worktable[~worktable.Source.str.contains('Loans')]
-    worktable = worktable[~worktable.Name.str.contains('Forfeiture Account')]
+    #worktable = worktable[~worktable.Name.str.contains('Forfeiture Account')]
     trunctable = worktable.loc[:, (worktable != 0).any(axis=0)]
 
     trunctable['SSN'] = trunctable['SSN'].str.replace('-', '').astype(int)
@@ -660,7 +625,6 @@ def voya_pivot(filename):
     for col in columns:
         if col not in ('Beg Bal', 'End Bal'):
             trunctable[col].replace(0, '', inplace=True)
-
     return (trunctable, pye, plan_name)
 
 
@@ -675,7 +639,7 @@ def trc_pivot(filename):
     
     b = open(filename, 'r').readlines()
     #line = b[1]
-    pye = b[1][-11:-1]
+    pye = b[1][-11:-1].replace('/', '')
     
     worktable = pd.read_csv(filename, sep='\t',
                             usecols=[4,5,6,12,13,14,15,16,17,18,19,20,21,22,23],
@@ -723,7 +687,8 @@ def rkd_pivot(filename):
                             'Dividends', 'Gain/Loss', 'Exch', 'Fees', 'Forf', 'Distrib', 'Other',
                             'TRFIN', 'TRFOUT', 'Loan TRFIN', 'Loan TRFOUT', 'Int', 'Ins', 'End Bal', 'PYE'], header=None,
                             skiprows=1)
-    pye = worktable['PYE'][1]
+    pye = worktable['PYE'][1].replace('/', '')
+    
     planID = worktable['planID'][1]
     worktable['Name'] = worktable['fullname'].apply(parsename).str.title()
     worktable['G/L'] = worktable['Dividends'] + worktable['Gain/Loss']
@@ -755,10 +720,114 @@ def rkd_pivot(filename):
     except:
         planname = ''
     
+    return trunctable, pye, planname
+
+
+def emp_pivot(filename):
+    """Returns a pivot table df based on Empower assets."""
+
+    worktable = pd.read_excel(filename, sep=',',
+                            usecols=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+                            names=['SSN', 'Name', 'Source Code', 'Beg Bal', 'Contrib_Reg', 
+                                   'Contrib_SGL', 'Loan Pay', 'Cred_Int', 'GL', 'Fees', 'Forf', 
+                                   'New Loans', 'Distrib', 'End Bal'], 
+                            header=None,
+                            skiprows=1)
+    pye = ''
+    planname = ActiveTable.tail[:-5]
+    worktable['Name'] = worktable['Name'].str.title()
+    worktable['G/L'] = worktable['Cred_Int'] + worktable['GL']
+    worktable['Contribs'] = worktable['Contrib_Reg'] + worktable['Contrib_SGL']
+    worktable.drop(columns=['Cred_Int', 'GL',
+                            'Contrib_SGL', 'Contrib_Reg'],
+                   inplace=True)
+    pivoted_data = pd.pivot_table(worktable,
+                                  index = ['Name', 'SSN', 'Source Code'],
+                                  aggfunc=np.sum,
+                                  fill_value=0)
+    pivoted_data.reset_index(inplace=True)
+
+    trunctable = pivoted_data.loc[:, (pivoted_data != 0).any(axis=0)]
+    trunctable['Source Code'] = trunctable['Source Code'].astype(str)
+    trunctable['Source'] = trunctable['Source Code'].apply(parse_emp_src)
+    trunctable = trunctable.drop(columns=['Source Code'])
+
+    trunctable['SSN'] = trunctable['SSN'].str.replace('-', '').astype(int)
+    columns = list(trunctable)
+    for col in columns:
+        if col not in ('Beg Bal', 'End Bal'):
+            trunctable[col].replace(0, '', inplace=True)    
+    
+    
     
     
     return trunctable, pye, planname
 
+
+def prin_pivot(filename):
+    '''Returns a pivot table based on Principal assets.'''
+    pye = ''
+    test_df = pd.read_csv(filename)
+    #print(test_df)
+    worktable = pd.read_csv(filename,
+                            usecols=[0, 1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22],
+                            names=['First',
+                                'Last',
+                                'SSN',
+                                'Source',
+                                'Beg Bal',
+                                'End Bal',
+                                'gains',
+                                'Contrib',
+                                'dist',
+                                'ins',
+                                'rmd',
+                                'capgain',
+                                'div',
+                                'Fees',
+                                'Forf',
+                                'Refunds',
+                                'Loan Fees',
+                                'Loan Dist',
+                                'TRF',
+                                'Rollover',
+                                'Loan Prin',
+                                'Loan Int'],
+                            header=None,
+                            skiprows=1
+                            )
+    worktable.drop(worktable.tail(1).index, inplace=True)
+    worktable.reset_index(drop=True, inplace=True)
+
+    worktable['Name'] = worktable['Last'] + ', ' + worktable['First']
+    worktable['SSN'] = worktable['SSN'].astype(int)
+    worktable['Distrib'] = worktable['dist'] + worktable['ins'] + worktable['rmd']
+
+    worktable['Name'] = worktable['Name'].str.title()
+    worktable['G/L'] = worktable['gains'] + worktable['capgain'] + worktable['div']
+    worktable['Distrib'] = worktable['dist'] + worktable['ins'] + worktable['rmd']
+    worktable.drop(columns=['gains', 'capgain', 'div',
+                            'dist', 'ins', 'rmd'],
+                   inplace=True)
+
+
+
+    pivoted_data = pd.pivot_table(worktable,
+                                  index = ['SSN','Source'],
+                                  aggfunc=np.sum,
+                                  fill_value=0)
+    pivoted_data.reset_index(inplace=True)
+
+    nametable = worktable[['SSN'] + ['Name']].drop_duplicates(subset='SSN')
+
+    pivoted_data = pivoted_data.merge(nametable, on='SSN', how='left')
+
+
+    trunctable = pivoted_data.sort_values(by=['Source', 'Name'])
+    
+    trunctable = trunctable.loc[:, (trunctable != 0).any(axis=0)]
+    plan_name = ''
+    return trunctable, pye, plan_name
 
 
 if __name__ == '__main__':
