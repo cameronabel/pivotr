@@ -382,7 +382,3 @@ def tabbed_prep(trunctable, pye, contract_name):
 
         worksheet.freeze_panes(4, 0)
     writer.save()
-
-
-if __name__ == '__main__':
-    Pivotr().run()
