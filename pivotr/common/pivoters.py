@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from pivotr.common import helpers
+from common import helpers
 
 
 def jh_pivot(filename, head):
@@ -307,3 +307,54 @@ def prin_pivot(filename):
     trunctable = trunctable.loc[:, (trunctable != 0).any(axis=0)]
     plan_name = ''
     return trunctable, pye, plan_name
+
+
+def asc_pivot(filename):
+    """Returns a pivot table df based on Ascensus assets."""
+
+    worktable = pd.read_excel(filename, skiprows=6, usecols='A:C,F:Y')
+    plan_data_table = pd.read_excel(filename, nrows=4, usecols='A:B', header=None, names=['A', 'B'])
+
+    plan_name = plan_data_table.at[0, 'B'].strip().replace('(K)', '(k)')
+    pye = plan_data_table.at[3, 'B'].strip()[-11:]
+    
+    worktable['Name'] = worktable['Last Name'] + ', ' + worktable['First Name']
+    worktable['Name'] = worktable['Name'].str.title()
+    worktable['G/L'] = worktable['Dividends'] + worktable['Gain Loss']
+    
+    worktable['TRF'] = worktable['Transfer In'] + worktable['Transfer Out']
+    
+    worktable['Contrib'] = worktable['Contributions'] + worktable['Misc Contribution']
+    worktable['Distrib'] = (worktable['Distributions'] + worktable['Misc Distribution'] + 
+                            worktable['Rollover Out'])
+    
+    worktable.drop(columns=['Last Name', 'First Name',
+                            'Dividends', 'Gain Loss',
+                            'Transfer In', 'Transfer Out',
+                            'Contributions', 'Distributions',
+                            'Misc Contribution', 'Misc Distribution',
+                            'Rollover Out'], inplace=True)
+    col_name_dict = {'Money Type': 'Source',
+                     'Beginning Balance': 'Beg Bal',
+                     'Contributions': 'Contrib',
+                     'Rollover Contributions': 'Roll In',
+                     'Loan Principal Payments': 'Principal',
+                     'Loan Interest Payments': 'Interest',
+                     'Forfeiture': 'Forf',
+                     'Ending Balance': 'End Bal'}
+
+    for col in list(worktable):
+        worktable.rename(columns={col: col_name_dict.get(col, col)}, inplace=True)
+
+    trunctable = worktable.loc[:, (worktable != 0).any(axis=0)]
+    z_cols = [col for col in trunctable if col not in ['SSN', 'Name', 'Source']]
+    trunctable = trunctable[~(trunctable[z_cols] == 0).all(axis=1)]
+    trunctable['SSN'] = trunctable['SSN'].str.replace('-', '').astype(int)
+    trunctable['Name'] = trunctable['Name'].str.replace(',', ', ').replace(',  ', ', ')
+    columns = list(trunctable)
+    for col in columns:
+        if col not in ('Beg Bal', 'End Bal'):
+            trunctable[col].replace(0, '', inplace=True)
+    return trunctable, pye, plan_name
+
+    

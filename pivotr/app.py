@@ -11,8 +11,8 @@ from kivy.uix.button import Button
 from kivy.uix.label import Label
 from kivy.uix.stacklayout import StackLayout
 
-from pivotr.common import helpers as hp
-from pivotr.common import pivoters as pv
+from common import helpers as hp
+from common import pivoters as pv
 
 kivy.require("1.9.1")
 
@@ -172,7 +172,7 @@ def stacked_boot():
     elif ActiveTable.file_type == 'TRC':
         trunctable, pye, plan_name = pv.trc_pivot(ActiveTable.filename)
         stacked_prep(trunctable, pye, plan_name)
-    elif ActiveTable.file_type == 'RK Direct\nAviator':
+    elif ActiveTable.file_type == 'RK Direct':
         trunctable, pye, plan_name = pv.rkd_pivot(ActiveTable.filename)
         stacked_prep(trunctable, pye, plan_name)
     elif ActiveTable.file_type == 'Empower':
@@ -180,6 +180,9 @@ def stacked_boot():
         stacked_prep(trunctable, pye, plan_name)
     elif ActiveTable.file_type == 'Principal':
         trunctable, pye, plan_name = pv.prin_pivot(ActiveTable.filename)
+        stacked_prep(trunctable, pye, plan_name)
+    elif ActiveTable.file_type == 'Ascensus':
+        trunctable, pye, plan_name = pv.asc_pivot(ActiveTable.filename)
         stacked_prep(trunctable, pye, plan_name)
 
 
@@ -212,6 +215,9 @@ def tabbed_boot():
         tabbed_prep(trunctable, pye, plan_name)
     elif ActiveTable.file_type == 'Principal':
         trunctable, pye, plan_name = pv.prin_pivot(ActiveTable.filename)
+        tabbed_prep(trunctable, pye, plan_name)
+    elif ActiveTable.file_type == 'Ascensus':
+        trunctable, pye, plan_name = pv.asc_pivot(ActiveTable.filename)
         tabbed_prep(trunctable, pye, plan_name)
 
 

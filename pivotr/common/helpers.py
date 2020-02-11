@@ -24,6 +24,9 @@ def determine_file_type(filename):
     elif is_prin(filename):
         file_type = 'Principal'
         valid_file = True
+    elif is_ascensus(filename):
+        file_type = 'Ascensus'
+        valid_file = True
     else:
         file_type = 'Incompatible file source'
         valid_file = False
@@ -73,6 +76,16 @@ def is_prin(filename):
     except Exception:
         return False
 
+# noinspection PyBroadException
+def is_ascensus(filename):
+    try:
+        test_df = pd.read_excel(filename, skiprows=6)
+        if 'Location Name' in test_df.columns:
+            return True
+        else:
+            return False
+    except Exception:
+        return False
 
 # noinspection PyBroadException
 def namegen(head):
